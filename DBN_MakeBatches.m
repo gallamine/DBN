@@ -1,7 +1,9 @@
-function [batchData, batchLabel] = DBN_MakeBatches(fileName, totalNum, numBatches, offset, pathBatch, pathData, PARAMS)
+function [batchData, batchLabel] = DBN_MakeBatches(dH, totalNum, numBatches, offset, pathBatch, pathData, PARAMS)
 % DBN_MAKEBATCHES ... 
 %   DBN_MAKEBATCHES 
 %  
+%	dH - Data handle, file handle to data storage. X is training data.
+%
 %   Example 
 %   DBN_MakeBatches 
 
@@ -29,7 +31,8 @@ label = S.label;
 for ii = 1:numBatches
     batchData = zeros(batchSize, PARAMS.dataLength);
     for jj = 1:batchSize
-        S = load([pathData fileName num2str(randomOrder(ii,jj))]);
+    	S = dH.X(randomOrder(ii,jj),1:numDimension);
+        %S = load([pathData fileName num2str(randomOrder(ii,jj))]);
         batchData(jj, 1:numel(S.data)) = S.data';                   
         batchLabel(jj, :) = label(randomOrder(ii,jj), :);
     end
