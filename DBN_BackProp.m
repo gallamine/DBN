@@ -185,7 +185,7 @@ for epoch = 1:maxEpoch
             wFinal = [];
             for level = 1:numNodes+1
                 temp = w{level};
-                wFinal = [wFinal temp(:)'];
+                wFinal = [wFinal;temp(:)];
             end
             
             dim = wIdx;
