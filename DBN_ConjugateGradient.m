@@ -21,7 +21,7 @@ for ii = 1:numNodes+1
     row = idx(ii)+1;
     col = idx(ii+1);
     w{ii} = reshape(VV(delta+1:delta+row*col), row, col);
-    delta = row * col;
+    delta = delta + row * col;
 end
 
 N = size(XX,1);
@@ -40,8 +40,8 @@ Ix{numNodes+1} = IO;
 dw{numNodes+1} =  wProb{end}'*IO; 
 
 % remove bias from XX (wProb{1})
-temp = wProb{1};
-wProb{1} = temp(:,end-1);
+%temp = wProb{1};
+%Prob{1} = temp(:,1:end-1);     % Hinton doesn't do this.
 
 for ii = numNodes:-1:1
     temp = (Ix{ii+1} * w{ii+1}') .* wProb{ii+1} .* (1-wProb{ii+1});

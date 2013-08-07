@@ -26,12 +26,14 @@ N = size(w,1);
 w_class = reshape(VV,l1+1,l2);
 w = [w  ones(N,1)];  
 
+% p(yi = j | x;w) = exp(xi*wj)/sum(exp(xl*w))_l=1:T, for T classes
+
 targetout = exp(w*w_class);
-targetout = targetout./repmat(sum(targetout,2),1,numTargets);
-f = -sum(sum( target(:,1:end).*log(targetout))) ;
-IO = (targetout-target(:,1:end));
+targetout = targetout./repmat(sum(targetout,2),1,numTargets);   % Softmax output - exp(q)/(sum(e(q)))
+f = -sum(sum( target(:,1:end).*log(targetout))) ;   % Softmax regression error fcn (see http://ufldl.stanford.edu/wiki/index.php/Softmax_Regression)
+IO = (targetout-target(:,1:end));   
 Ix_class=IO; 
-dw_class =  w'*Ix_class; 
+dw_class =  w'*Ix_class;        % Derivative of 'f' w.r.t weights
 
 df = (dw_class(:)')'; 
 

@@ -162,7 +162,7 @@ for epoch = 1:maxEpoch
         %% conjgate gradient descent with linesearches
         
         
-        if epoch < 6  % First update top-level weights holding other weights fixed.
+        if epoch < 2  % First update top-level weights holding other weights fixed.
             for level = 1:numNodes
                 temp = 1./(1 + exp(-data*w{level}));
                 data = [temp ones(batchSize*combo, 1)];
@@ -196,7 +196,7 @@ for epoch = 1:maxEpoch
                 row = wIdx(ii) + 1;
                 col = wIdx(ii+1);
                 w{ii} = reshape(X(delta+1:delta+(row*col)),row,col);
-                delta = row*col;
+                delta = delta + row*col;
             end
         end
     end
