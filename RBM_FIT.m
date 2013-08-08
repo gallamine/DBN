@@ -1,4 +1,4 @@
-function [ weights, weightsC, biasesVis, biasesHid, biasesC, errsum ] = RBM_FIT(aVH,aHH, dH, numNodes1, numNodes2, restart, PARAMS, offset)
+function [ weights, weightsC, biasesVis, biasesHid, biasesC, errsum ] = RBM_FIT(aVH,aHH, dH, numNodes1, numNodes2, restart, PARAMS, offset,varargin)
 %RBM_FIT Use contrastic divergence to fit the last layer of a RBM to hard
 %labels. Some magic going on here. Based on Andrej Karpathy's code: https://code.google.com/p/matrbm/
 %  aVH - Handle to activations of the visible layer (last layer)
@@ -37,6 +37,15 @@ if restart == 1
     biasesVis  = zeros(1,numNodes1);
     biasesC     = zeros(1,numTargetClass);
     deltaWeights  = zeros(numNodes1,numNodes2);
+    deltaBiasesHid = zeros(1,numNodes2);
+    deltaBiasesVis = zeros(1,numNodes1);
+    deltaWeightsC  = zeros(numTargetClass,numNodes2);
+    deltaBiasC     = zeros(1,numTargetClass);
+else
+   disp('Starting from a non-zero state');
+   epoch = varargin{1};
+   load([varargin{2} 'state' num2str(varargin{3})]);
+   deltaWeights  = zeros(numNodes1,numNodes2);
     deltaBiasesHid = zeros(1,numNodes2);
     deltaBiasesVis = zeros(1,numNodes1);
     deltaWeightsC  = zeros(numTargetClass,numNodes2);

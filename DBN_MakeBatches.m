@@ -24,16 +24,16 @@ batchLabel = zeros(batchSize,PARAMS.numTargets);
 
 %% random order
 randomOrder = reshape(randperm(totalNum)+offset, [numBatches batchSize]);
-S = load([pathData 'label']);
-label = S.label;
+%S = load([pathData 'label']);
+label = dH.Y;
 
 %% create each batch and save it off
 for ii = 1:numBatches
     batchData = zeros(batchSize, PARAMS.dataLength);
     for jj = 1:batchSize
-    	S = dH.X(randomOrder(ii,jj),1:numDimension);
+    	data = dH.X(randomOrder(ii,jj),1:numDimension);
         %S = load([pathData fileName num2str(randomOrder(ii,jj))]);
-        batchData(jj, 1:numel(S.data)) = S.data';                   
+        batchData(jj, 1:numel(data)) = data';                   
         batchLabel(jj, :) = label(randomOrder(ii,jj), :);
     end
     save([pathBatch '\batch' num2str(ii)], 'batchData', 'batchLabel');

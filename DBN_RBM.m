@@ -1,4 +1,4 @@
-function [weights, biasesVis, biasesHid, errsum] = DBN_RBM(aVH,aHH, numNodes1, numNodes2, restart, PARAMS, offset)
+function [weights, biasesVis, biasesHid, errsum] = DBN_RBM(aVH,aHH, numNodes1, numNodes2, restart, PARAMS, offset, varargin)
 % DBN_RBM ...
 %   aVH - handle to visible activations
 %   aHH - handle to hidden activations
@@ -44,6 +44,13 @@ if restart == 1
     weights     = 0.1*randn(numNodes1, numNodes2);
     biasesHid  = zeros(1,numNodes2);
     biasesVis  = zeros(1,numNodes1);
+    deltaWeights  = zeros(numNodes1,numNodes2);
+    deltaBiasesHid = zeros(1,numNodes2);
+    deltaBiasesVis = zeros(1,numNodes1);
+else
+   disp('Starting from a non-zero state');
+   epoch = varargin{1};
+   load([varargin{2} 'state' num2str(varargin{3})]);
     deltaWeights  = zeros(numNodes1,numNodes2);
     deltaBiasesHid = zeros(1,numNodes2);
     deltaBiasesVis = zeros(1,numNodes1);

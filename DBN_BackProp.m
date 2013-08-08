@@ -1,4 +1,4 @@
-function DBN_BackProp(dH,pathDir, PARAMS)
+function [finalModelFileName] = DBN_BackProp(dH,pathDir, PARAMS,varargin)
 % DBN_BACKPROP ...
 %   DBN_BACKPROP
 %
@@ -31,6 +31,17 @@ combo                   = PARAMS.combo;
 totalTrainNum           = PARAMS.numBatches * PARAMS.batchSize;
 totalValidatenNum       = PARAMS.numValidate * PARAMS.batchSize;
 comboBatchSize          = combo*batchSize;
+
+%% Operating flag that should go away
+
+TEST_AGAINST_HINTON = 0;
+if numel(varargin) > 0
+    pathBatch = varargin{1};
+    pathValidate = varargin{2};
+end
+if TEST_AGAINST_HINTON == 1
+    disp('Using non-random batch mixing');
+end
 %% Load and initilize states
 % initialize weights and biases to dummy val
 [w{1:numNodes}] = deal(eye(2));
@@ -69,20 +80,26 @@ for epoch = 1:maxEpoch
     idx =  1:totalTrainNum;
     label = zeros(batchSize,numTargetClass);
     for batch = 1:numBatches
-        % We're reading all the data, so this doesn't have to be random
-        batchStart = (batch - 1)*batchSize + 1; 
-        batchEnd = batch*batchSize;
- 
-        dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
-        label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
-        %%%
+        if TEST_AGAINST_HINTON == 1
+            S = load([pathBatch '/batch' num2str(batch)]);
+            data = [S.batchData ones(batchSize,1)];
+            label = [S.batchLabel];
+            clear S;
+        else
+            % We're reading all the data, so this doesn't have to be random
+            batchStart = (batch - 1)*batchSize + 1; 
+            batchEnd = batch*batchSize;
+
+            dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
+            label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
+            %%%
+
+            data = [dataNoBias ones(batchSize,1)];
+        end
         if mod(batch,50) == 1
             fprintf(1,'Epoch %d\tBatch %d\n', epoch, batch);
         end
-        %S = load([pathBatch '/batch' num2str(batch)]);
-        data = [dataNoBias ones(batchSize,1)];
-        
-        %clear S;
+
         
         for level = 1:numNodes
             temp = 1./(1 + exp(-data*w{level}));
@@ -106,14 +123,18 @@ for epoch = 1:maxEpoch
     offset = totalTrainNum;
     idx = [1:totalValidatenNum] + offset;
     for batch = 1:numValidateBatches
-        batchStart = (batch - 1)*batchSize + 1;
-        batchEnd = batch*batchSize;    
-        dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
-        label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
-        %S = load([pathValidate 'batch' num2str(batch)]);
-        data = [dataNoBias ones(batchSize,1)];
-        
-        %clear S;
+        if TEST_AGAINST_HINTON == 1
+            S = load([pathValidate '/batch' num2str(batch)]);
+            data = [S.batchData ones(batchSize,1)];
+            label = [S.batchLabel];
+            clear S;
+        else    % Ideally we should figure out how much data we can load at once and process in that chunk size
+            batchStart = (batch - 1)*batchSize + 1;
+            batchEnd = batch*batchSize;    
+            dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
+            label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
+            data = [dataNoBias ones(batchSize,1)];
+        end
         
         for level = 1:numNodes
             temp = 1./(1 + exp(-data*w{level}));
@@ -138,25 +159,32 @@ for epoch = 1:maxEpoch
     idx = randperm(totalTrainNum);
     for batch = 1:numCombinedBatches
         batch
-        batchStart = (batch - 1)*comboBatchSize + 1;
-        for kk = 1:comboBatchSize
-            comboData(kk,1:numDimensions) = dH.X(idx(batchStart+kk-1),1:numDimensions);
-            label(kk,1:numTargetClass) = dH.Y(idx(batchStart+kk-1),1:numTargetClass);
-        end
-        data = [comboData ones(comboBatchSize,1)];
+        if TEST_AGAINST_HINTON == 1
+            % make a bigger minibatch
+            
+            data = [];
+            label = [];
+            for count = 0:combo-1
+                S = load([pathBatch '/batch' num2str(batch+count)]);
+                temp = [S.batchData ones(batchSize,1)];
+                data = [data; temp;];
+                label = [label; S.batchLabel;];
+                %label(batch:batch+comb-1) = S.label;
+                clear S;
+            end
+            comboData = data(:,1:end-1);
+
+        else
+            
+            batchStart = (batch - 1)*comboBatchSize + 1;
+            comboData = zeros(comboBatchSize,numDimensions);
+            for kk = 1:comboBatchSize
+                comboData(kk,1:numDimensions) = dH.X(idx(batchStart+kk-1),1:numDimensions);
+                label(kk,1:numTargetClass) = dH.Y(idx(batchStart+kk-1),1:numTargetClass);
+            end
+            data = [comboData ones(comboBatchSize,1)];
         
-%         % make a bigger minibatch
-%         data = [];
-%         label = [];
-%         for count = 0:combo-1
-%             S = load([pathBatch '/batch' num2str(batch+count)]);
-%             temp = [S.batchData ones(batchSize,1)];
-%             data = [data; temp;];
-%             label = [label; S.batchLabel;];
-%             %label(batch:batch+comb-1) = S.label;
-%             clear S;
-%         end
-%         comboData = data(:,1:end-1);
+        end
 
         
         %% conjgate gradient descent with linesearches
@@ -202,3 +230,4 @@ for epoch = 1:maxEpoch
     end
     save(['finalState' num2str(epoch)], 'w', 'v', 'trainError', 'trainErrorNormalized', 'testError', 'testErrorNormalized')
 end
+finalModelFileName = ['finalState' num2str(epoch) '.mat'];

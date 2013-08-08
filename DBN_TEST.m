@@ -1,4 +1,4 @@
-function [pd, targetout] = DBN_TEST(pathTest, PARAMS)
+function [pd, targetout] = DBN_TEST(dH,w,PARAMS)
 % DBN_RBM ...
 %   DBN_RBM
 %
@@ -15,40 +15,60 @@ function [pd, targetout] = DBN_TEST(pathTest, PARAMS)
 %% FILENAME  : DBN_TEST.m
 %% COPYRIGHT 2011 3 Phonenix Inc.
 
+%% Constants
+maxEpoch                = PARAMS.maxBackPropEpoch;
+numNodes                = numel(PARAMS.nodes);
+numTargetClass          = PARAMS.numTargets;
+numBatches              = PARAMS.numBatches;
+batchSize               = PARAMS.batchSize;
+numDimensions           = PARAMS.dataLength;
+numCombinedBatches      = PARAMS.numCombinedBatches;
+maxIterations           = PARAMS.numberOfLineSearches;
+numValidateBatches      = PARAMS.numValidate;
+combo                   = PARAMS.combo;
+totalTrainNum           = PARAMS.numBatches * PARAMS.batchSize;
+totalValidatenNum       = PARAMS.numValidate * PARAMS.batchSize;
+comboBatchSize          = combo*batchSize;
+
 %% constants
 numNodes = numel(PARAMS.nodes);
 
 %% find prob for each test data file
 
 % load DBN weights
-S = load('finalState3.mat');
-w = S.w;
-clear S;
+%S = load('finalState3.mat');
+%w = S.w;
+%clear S;
 
-filename = getAllFiles(pathTest);
-pd = zeros(numel(filename),1);
-targetout = zeros(numel(filename),2);
+%filename = getAllFiles(pathTest);
+numTestExamples = size(dH,'X');
 
-for ii = 1:numel(filename)
-    
-     [a, ~] = regexp(filename{ii}, 'test([0-9]*).mat', 'tokens');
-     idx = str2double(a{1}{1}) + 1;
-     
-     [~,name,~] = fileparts(filename{ii});
-     S = load(filename{ii});
-     dataNoBias = S.data;
-     clear S;
-     
+pd = zeros(numTestExamples(1));
+%targetout = zeros(numel(filename),2);
+
+for ii = 1:numTestExamples(1)
+    if (mod(ii,100) == 1)
+       disp(['Processing ' num2str(ii)]); 
+    end
+%      [a, ~] = regexp(filename{ii}, 'test([0-9]*).mat', 'tokens');
+%      idx = str2double(a{1}{1}) + 1;
+%      
+%      [~,name,~] = fileparts(filename{ii});
+%      S = load(filename{ii});
+%      dataNoBias = S.data;
+%      clear S;
+     dataNoBias = dH.X(ii,1:numDimensions);
      N = numel(dataNoBias);
-     wprobs{1} = [dataNoBias; 1]';
+     wprobs{1} = [dataNoBias 1];
      
-     ii
+     
      for jj = 1:numNodes
          temp = 1./(1 + exp(-wprobs{jj}*w{jj}));
          wprobs{jj+1} = [temp 1]; 
      end
-     targetout(idx,:) = exp(wprobs{jj+1}*w{jj+1});
-     pd(idx) = (targetout(idx,1) ./ sum(targetout(idx,:),2));        
+     % Compute softmax
+     targetout(ii,1:numTargetClass) = exp(wprobs{jj+1}*w{jj+1});
+     pd(ii) = (targetout(ii,1) ./ sum(targetout(ii,:),2));        
 end
 
 end
