@@ -1,9 +1,9 @@
 % main loop
 %% tunable constants
 PARAMS.trainSamples             = 70000;
-PARAMS.batchSize                = 100;
+PARAMS.batchSize                = 50;
 PARAMS.validatePercentage       = 1/7;      % For MNIST, the last 10k samples are testing
-PARAMS.maxEpoch                 = 15;
+PARAMS.maxEpoch                 = 25;
 PARAMS.nodes                    = [500 500 2000];
 PARAMS.learningRateW            = 0.1;   % Learning rate for RBM weights
 PARAMS.learningRateBiasVis      = 0.1;   % Learning rate for biases of visible units
@@ -13,12 +13,13 @@ PARAMS.weightCost               = 0.0002;
 PARAMS.initialMomentum          = 0.5;
 PARAMS.finalMomentum            = 0.9;
 PARAMS.epochToChangeMomentum    = 5;
-PARAMS.maxBackPropEpoch         = 15;
+PARAMS.maxBackPropEpoch         = 25;
 PARAMS.combo                    = 10; % for gradient descent
 %PARAMS.numTargets               = 2;
 PARAMS.numberOfLineSearches     = 3; % for conjugate gradient descent
 PARAMS.displayVisualization     = 1;
 FIT_LAST_LAYER_TO_TARGETS       = 0;
+PARAMS.useFileBatches           = 0;
 %% path definitions
 % set this one
 dirpath = 'C:\Users\william.cox\Documents\MNIST\';
@@ -77,17 +78,20 @@ fprintf(1, 'Preprocess Training Data.\nUsing %f of data for training\n', (1-PARA
 %DBN_FormatData(dirpath, pathTrain, pathTest, PARAMS);
 
 %% train rbm
-% make batches
-fprintf(1, 'Create Batchfiles\nEach batch will have %d samples \n\n', PARAMS.batchSize);
-offset = 0;
-%DBN_MakeBatches('train', totalTrainSamples, PARAMS.numBatches,offset, pathBatch1, pathTrain, PARAMS);
+if PARAMS.useFileBatches == 1
+%% 
+    % make batches
+    fprintf(1, 'Create Batchfiles\nEach batch will have %d samples \n\n', PARAMS.batchSize);
+    offset = 0;
+    DBN_MakeBatches('train', totalTrainSamples, PARAMS.numBatches,offset, pathBatch1, pathTrain, PARAMS);
+end
 
 %% train RBM
 numNodes = [PARAMS.dataLength PARAMS.nodes];
 offset = 0;
 restart=1;
 
-if resart == 0
+if restart == 0
     disp('Are you sure you want restart zero???');
     epoch = 4;
 else
@@ -119,17 +123,18 @@ fprintf(1,'RBM training complete \n\n');
 
 %% Fit last layer to labels?
 
-%[weights, biasesVis, biasesHid, errsum] = ...
-        [testE,trainE,tEn,trainEN] = DBN_UNFOLD_NOBACKPROP(dH,dirpath,PARAMS);
+%       [testE,trainE,tEn,trainEN] = DBN_UNFOLD_NOBACKPROP(dH,dirpath,PARAMS);
 
 %% backprop with labels
-fprintf(1,'Create new batches for backprop training and validation\n');
-% rebatch and validate data, for backprop
-offset = 0;
-DBN_MakeBatches(dH, totalTrainSamples, PARAMS.numBatches, offset, pathBatch1, pathTrain, PARAMS);
-offset = totalTrainSamples;
-DBN_MakeBatches(dH, totalValidateSamples, PARAMS.numValidate, offset, pathValidate, pathTrain, PARAMS);
-
+if PARAMS.useFileBatches == 1
+%%
+    fprintf(1,'Create new batches for backprop training and validation\n');
+    % rebatch and validate data, for backprop
+    offset = 0;
+    DBN_MakeBatches(dH, totalTrainSamples, PARAMS.numBatches, offset, pathBatch1, pathTrain, PARAMS);
+    offset = totalTrainSamples;
+    DBN_MakeBatches(dH, totalValidateSamples, PARAMS.numValidate, offset, pathValidate, pathTrain, PARAMS);
+end
 %%
 % backprop
 fprintf(1,'Begin Backpropogation\n');
@@ -138,6 +143,10 @@ finalModelFileName = DBN_BackProp(dH,dirpath,PARAMS,pathBatch1,pathValidate )
 %% test
 S = load(finalModelFileName);
 modelWeights = S.w;
-
+testDataHandle = matfile([dirpath 'testMNIST.mat']);
+[~,Ytest] = find(testDataHandle.Y);
 [pd, testout] = DBN_TEST(testDataHandle,modelWeights, PARAMS);
-save('temp','pd');
+[~,Yest] = max(testout,[],2);
+cm = confusionMatrix(Ytest,Yest);
+figure;imagesc(cm);
+%save('temp','testout');

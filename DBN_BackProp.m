@@ -34,7 +34,8 @@ comboBatchSize          = combo*batchSize;
 
 %% Operating flag that should go away
 
-TEST_AGAINST_HINTON = 0;
+TEST_AGAINST_HINTON = PARAMS.useFileBatches;
+
 if numel(varargin) > 0
     pathBatch = varargin{1};
     pathValidate = varargin{2};
@@ -146,7 +147,7 @@ for epoch = 1:maxEpoch
         [~, idxEst]= max(labelEst,[],2);
         [~, idxTrue]= max(label,[],2);
         counter = counter + length(find(idxEst==idxTrue));
-        error = error- sum(sum(label(:,1:end).*log(labelEst)));
+        error = error- sum(sum(label(:,1:end).*log(labelEst)));    % Cross-entropy error. See http://ufldl.stanford.edu/wiki/index.php/Softmax_Regression for Softmax
     end
     testError(epoch) = (batchSize*numValidateBatches-counter);
     testErrorNormalized(epoch)= error/numValidateBatches;
