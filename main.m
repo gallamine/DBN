@@ -4,7 +4,7 @@ PARAMS.trainSamples             = 28000;
 PARAMS.batchSize                = 15;
 PARAMS.validatePercentage       = .25;
 PARAMS.maxEpoch                 = 25;
-PARAMS.nodes                    = [500 250 125 50];
+PARAMS.nodes                    = [500 500 2000];
 PARAMS.learningRateW            = 0.05;   % Learning rate for RBM weights
 PARAMS.learningRateBiasVis      = 0.05;   % Learning rate for biases of visible units
 PARAMS.learningRateBiasHid      = 0.05;   % Learning rate for biases of hidden units
@@ -18,6 +18,8 @@ PARAMS.combo                    = 10; % for gradient descent
 %PARAMS.numTargets               = 2;
 PARAMS.numberOfLineSearches     = 3; % for conjugate gradient descent
 PARAMS.displayVisualization     = 1;
+FIT_LAST_LAYER_TO_TARGETS       = 0;
+PARAMS.useFileBatches           = 0;
 
 %% path definitions
 % set this one
@@ -77,17 +79,26 @@ fprintf(1, 'Preprocess Training Data.\nUsing %f of data for training\n', (1-PARA
 %DBN_FormatData(dirpath, pathTrain, pathTest, PARAMS);
 
 %% train rbm
-% make batches
-fprintf(1, 'Create Batchfiles\nEach batch will have %d samples \n\n', PARAMS.batchSize);
-offset = 0;
-%DBN_MakeBatches('train', totalTrainSamples, PARAMS.numBatches,offset, pathBatch1, pathTrain, PARAMS);
+if PARAMS.useFileBatches == 1
+    %% make batches
+    fprintf(1, 'Create Batchfiles\nEach batch will have %d samples \n\n', PARAMS.batchSize);
+    offset = 0;
+    DBN_MakeBatches(dH, totalTrainSamples, PARAMS.numBatches,offset, pathBatch1, pathTrain, PARAMS);
+end
 
 %% train RBM
 numNodes = [PARAMS.dataLength PARAMS.nodes];
 offset = 0;
+restart=1;
+
+if restart == 0
+    disp('Are you sure you want restart zero???');
+    epoch = 4;
+else
+    epoch = 0;
+end
 for ii = 1:numberOfLayers
     fprintf(1,'Pretraining Layer %d with RBM: %d-%d \n',ii,numNodes(ii),numNodes(ii+1));
-    restart=1;
     path1 = [pathBatch num2str(ii) '\'];
     path2 = [pathBatch num2str(ii+1) '\'];
     if ii == 1 % First layer activations are the input data
@@ -96,13 +107,13 @@ for ii = 1:numberOfLayers
         actH1 = matfile([path1 'data.mat'],'Writable',true);  % Visible layer activations file
     end
     actH2 = matfile([path2 'data.mat'],'Writable',true);  % Hidden layer activations file
-    if ii < numberOfLayers
+    if ii < numberOfLayers || FIT_LAST_LAYER_TO_TARGETS == 0    
         [weights, biasesVis, biasesHid, errsum] = ...
-        DBN_RBM(actH1, actH2, numNodes(ii), numNodes(ii+1), restart, PARAMS,offset);
+        DBN_RBM(actH1, actH2, numNodes(ii), numNodes(ii+1), restart, PARAMS,offset,epoch);
         save([dirpath 'state' num2str(ii)], 'weights', 'biasesVis', 'biasesHid', 'errsum');
     else
         [weights, weightsC, biasesVis, biasesHid, biasesC, errsum] = ...
-        RBM_FIT(actH1, actH2, dH, numNodes(ii), numNodes(ii+1), restart, PARAMS,offset);
+        RBM_FIT(actH1, actH2, dH, numNodes(ii), numNodes(ii+1), restart, PARAMS,offset,epoch);
         save([dirpath 'state' num2str(ii)], 'weights', 'biasesVis', 'biasesHid', 'errsum', 'weightsC','biasesC');
     end
     
@@ -111,22 +122,23 @@ fprintf(1,'RBM training complete \n\n');
 
 %% Fit last layer to labels?
 
-%[weights, biasesVis, biasesHid, errsum] = ...
-        [testE,trainE,tEn,trainEN] = DBN_UNFOLD_NOBACKPROP(dH,dirpath,PARAMS);
+%[testE,trainE,tEn,trainEN] = DBN_UNFOLD_NOBACKPROP(dH,dirpath,PARAMS);
 
 %% backprop with labels
-fprintf(1,'Create new batches for backprop training and validation\n');
-% rebatch and validate data, for backprop
-offset = 0;
-%DBN_MakeBatches('train', totalTrainSamples, PARAMS.numBatches, offset, pathBatch1, pathTrain, PARAMS);
-offset = totalTrainSamples;
-%DBN_MakeBatches('train', totalValidateSamples, PARAMS.numValidate, offset, pathValidate, pathTrain, PARAMS);
-
+if PARAMS.useFileBatches == 1
+    %%
+    fprintf(1,'Create new batches for backprop training and validation\n');
+    % rebatch and validate data, for backprop
+    offset = 0;
+    DBN_MakeBatches(dH, totalTrainSamples, PARAMS.numBatches, offset, pathBatch1, pathTrain, PARAMS);
+    offset = totalTrainSamples;
+    DBN_MakeBatches(dH, totalValidateSamples, PARAMS.numValidate, offset, pathValidate, pathTrain, PARAMS);
+end
 %%
 % backprop
 fprintf(1,'Begin Backpropogation\n');
-DBN_BackProp(dH,dirpath,PARAMS)
+finalModelFileName = DBN_BackProp(dH,dirpath,PARAMS,pathBatch1,pathValidate ) 
 
 %% test
-[pd, testout] = DBN_TEST(pathTest, PARAMS);
-save('temp','pd');
+%[pd, testout] = DBN_TEST(pathTest, PARAMS);
+%save('temp','pd');
