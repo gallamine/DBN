@@ -21,6 +21,7 @@ PARAMS.displayVisualization     = 1;
 FIT_LAST_LAYER_TO_TARGETS       = 0;
 PARAMS.useFileBatches           = 0;
 PARAMS.nodeType                 = 'binary';
+PARAMS.dropOutRatio             = 0.5;
 %% path definitions
 % set this one
 dirpath = 'C:\Users\william.cox\Documents\DBN\whales\';
