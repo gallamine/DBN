@@ -20,6 +20,7 @@ PARAMS.numberOfLineSearches     = 3; % for conjugate gradient descent
 PARAMS.displayVisualization     = 1;
 FIT_LAST_LAYER_TO_TARGETS       = 0;
 PARAMS.useFileBatches           = 0;
+PARAMS.nodeType                 = 'binary';
 %% path definitions
 % set this one
 dirpath = 'C:\Users\william.cox\Documents\MNIST\';

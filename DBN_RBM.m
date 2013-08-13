@@ -29,6 +29,8 @@ batchSize               = PARAMS.batchSize;
 epochToChangeMomentum   = PARAMS.epochToChangeMomentum;
 numDimensions           = PARAMS.dataLength   
 totalNum                = PARAMS.numBatches * PARAMS.batchSize;
+binaryNode              = strcmp(PARAMS.nodeType,'binary');
+
 %% Create figure
 
 if PARAMS.displayVisualization == 1
@@ -76,17 +78,30 @@ for epoch = epoch:maxEpoch
 
         %S = load([pathBatch1 'batch' num2str(batch)]);
         %data = loadBatch(dH,numBatches,batchSize);
-        posHidProbs = 1./(1 + exp(-data*weights - repmat(biasesHid,batchSize,1)));
+        if binaryNode == 1
+            posHidProbs = 1./(1 + exp(-data*weights - repmat(biasesHid,batchSize,1)));
+        else
+            posHidProbs = data*weights + repmat(biasesHid,batchSize,1);
+        end
         batchData = posHidProbs; % for next level input
         posProds    = data' * posHidProbs;
         poshidact   = sum(posHidProbs);
         posvisact = sum(data);
         
-        poshidstates = posHidProbs > rand(batchSize,numNodes2);
+        if binaryNode == 1
+            poshidstates = posHidProbs > rand(batchSize,numNodes2);
+        else
+            poshidstates = posHidProbs + randn(batchSize,numNodes2);       % Sample from Normal(podHidProbs, 1)
+        end
         
         %% START NEGATIVE PHASE
         negdata = 1./(1 + exp(-poshidstates*weights' - repmat(biasesVis,batchSize,1)));
-        negHidProbs = 1./(1 + exp(-negdata*weights - repmat(biasesHid,batchSize,1)));
+        
+        if binaryNode == 1
+            negHidProbs = 1./(1 + exp(-negdata*weights - repmat(biasesHid,batchSize,1)));
+        else
+            negHidProbs = negdata*weights + repmat(biasesHid,batchSize,1);
+        end
         negProds  = negdata'*negHidProbs;
         neghidact = sum(negHidProbs);
         negvisact = sum(negdata);

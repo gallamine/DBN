@@ -1,19 +1,19 @@
 % main loop
 %% tunable constants
-PARAMS.trainSamples             = 28000;
+PARAMS.trainSamples             = 30000;
 PARAMS.batchSize                = 15;
-PARAMS.validatePercentage       = .25;
-PARAMS.maxEpoch                 = 7;
+PARAMS.validatePercentage       = 1/6;      % For MNIST, the last 10k samples are testing
+PARAMS.maxEpoch                 = 25;
 PARAMS.nodes                    = [500 500 2000];
-PARAMS.learningRateW            = 0.05;   % Learning rate for RBM weights
-PARAMS.learningRateBiasVis      = 0.05;   % Learning rate for biases of visible units
-PARAMS.learningRateBiasHid      = 0.05;   % Learning rate for biases of hidden units
-PARAMS.learningRateBiasLabel    = 0.05;    % Learning rate to fit the labels at the end
+PARAMS.learningRateW            = 0.1;   % Learning rate for RBM weights
+PARAMS.learningRateBiasVis      = 0.1;   % Learning rate for biases of visible units
+PARAMS.learningRateBiasHid      = 0.1;   % Learning rate for biases of hidden units
+PARAMS.learningRateBiasLabel    = 0.1;    % Learning rate to fit the labels at the end
 PARAMS.weightCost               = 0.0002;
-PARAMS.initialMomentum          = 0.2;
-PARAMS.finalMomentum            = 0.5;
+PARAMS.initialMomentum          = 0.5;
+PARAMS.finalMomentum            = 0.9;
 PARAMS.epochToChangeMomentum    = 5;
-PARAMS.maxBackPropEpoch         = 10;
+PARAMS.maxBackPropEpoch         = 25;
 PARAMS.combo                    = 10; % for gradient descent
 %PARAMS.numTargets               = 2;
 PARAMS.numberOfLineSearches     = 3; % for conjugate gradient descent
@@ -23,8 +23,9 @@ PARAMS.useFileBatches           = 0;
 PARAMS.nodeType                 = 'binary';
 %% path definitions
 % set this one
-dirpath = 'C:\Users\william.cox\Documents\DBN\emotions_data\';
-dH = matfile([dirpath 'trainXY.mat'],'Writable',true);  % Should contain X NxD, Y Nx1
+dirpath = 'C:\Users\william.cox\Documents\DBN\whales\';
+
+dH = matfile([dirpath 'trainWhale_Sm_spect.mat'],'Writable',true);  % Should contain X NxD, Y Nx1
 % these will get created
 pathTrain = [dirpath 'processed/train/'];
 pathTest = [dirpath 'processed/test/'];
@@ -80,10 +81,11 @@ fprintf(1, 'Preprocess Training Data.\nUsing %f of data for training\n', (1-PARA
 
 %% train rbm
 if PARAMS.useFileBatches == 1
-    %% make batches
+%% 
+    % make batches
     fprintf(1, 'Create Batchfiles\nEach batch will have %d samples \n\n', PARAMS.batchSize);
     offset = 0;
-    DBN_MakeBatches(dH, totalTrainSamples, PARAMS.numBatches,offset, pathBatch1, pathTrain, PARAMS);
+    DBN_MakeBatches('train', totalTrainSamples, PARAMS.numBatches,offset, pathBatch1, pathTrain, PARAMS);
 end
 
 %% train RBM
@@ -99,6 +101,7 @@ else
 end
 for ii = 1:numberOfLayers
     fprintf(1,'Pretraining Layer %d with RBM: %d-%d \n',ii,numNodes(ii),numNodes(ii+1));
+    
     path1 = [pathBatch num2str(ii) '\'];
     path2 = [pathBatch num2str(ii+1) '\'];
     if ii == 1 % First layer activations are the input data
@@ -107,7 +110,7 @@ for ii = 1:numberOfLayers
         actH1 = matfile([path1 'data.mat'],'Writable',true);  % Visible layer activations file
     end
     actH2 = matfile([path2 'data.mat'],'Writable',true);  % Hidden layer activations file
-    if ii < numberOfLayers || FIT_LAST_LAYER_TO_TARGETS == 0    
+    if ii < numberOfLayers || FIT_LAST_LAYER_TO_TARGETS == 0
         [weights, biasesVis, biasesHid, errsum] = ...
         DBN_RBM(actH1, actH2, numNodes(ii), numNodes(ii+1), restart, PARAMS,offset,epoch);
         save([dirpath 'state' num2str(ii)], 'weights', 'biasesVis', 'biasesHid', 'errsum');
@@ -122,11 +125,11 @@ fprintf(1,'RBM training complete \n\n');
 
 %% Fit last layer to labels?
 
-%[testE,trainE,tEn,trainEN] = DBN_UNFOLD_NOBACKPROP(dH,dirpath,PARAMS);
+%       [testE,trainE,tEn,trainEN] = DBN_UNFOLD_NOBACKPROP(dH,dirpath,PARAMS);
 
 %% backprop with labels
 if PARAMS.useFileBatches == 1
-    %%
+%%
     fprintf(1,'Create new batches for backprop training and validation\n');
     % rebatch and validate data, for backprop
     offset = 0;
@@ -137,8 +140,15 @@ end
 %%
 % backprop
 fprintf(1,'Begin Backpropogation\n');
-finalModelFileName = DBN_BackProp(dH,dirpath,PARAMS,pathBatch1,pathValidate ) 
+finalModelFileName = DBN_BackProp(dH,dirpath,PARAMS,pathBatch1,pathValidate )
 
 %% test
-%[pd, testout] = DBN_TEST(pathTest, PARAMS);
-%save('temp','pd');
+S = load(finalModelFileName);
+modelWeights = S.w;
+testDataHandle = matfile([dirpath 'testMNIST.mat']);
+[~,Ytest] = find(testDataHandle.Y);
+[pd, testout] = DBN_TEST(testDataHandle,modelWeights, PARAMS);
+[~,Yest] = max(testout,[],2);
+cm = confusionMatrix(Ytest,Yest);
+figure;imagesc(cm);
+%save('temp','testout');

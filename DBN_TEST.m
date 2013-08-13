@@ -43,7 +43,7 @@ numNodes = numel(PARAMS.nodes);
 %filename = getAllFiles(pathTest);
 numTestExamples = size(dH,'X');
 
-pd = zeros(numTestExamples(1));
+pd = zeros(numTestExamples(1),1);
 %targetout = zeros(numel(filename),2);
 
 for ii = 1:numTestExamples(1)
