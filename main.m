@@ -21,6 +21,7 @@ PARAMS.displayVisualization     = 1;
 FIT_LAST_LAYER_TO_TARGETS       = 0;
 PARAMS.useFileBatches           = 0;
 PARAMS.nodeType                 = 'binary';
+PARAMS.backpropCheckInterval    = 1;                % Check test/train error at every N epochs of backprop?
 %% path definitions
 % set this one
 dirpath = 'C:\Users\william.cox\Documents\DBN\emotions_data\';

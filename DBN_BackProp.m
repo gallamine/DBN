@@ -11,6 +11,7 @@ function [finalModelFileName] = DBN_BackProp(dH,pathDir, PARAMS,varargin)
 %
 
 %% AUTHOR    : Tushar Tank
+%% Edited    : William Cox
 %% $DATE     : 02-May-2013 17:18:13 $
 %% $Revision : 1.00 $
 %% DEVELOPED : 7.13.0.564 (R2011b)
@@ -31,7 +32,11 @@ combo                   = PARAMS.combo;
 totalTrainNum           = PARAMS.numBatches * PARAMS.batchSize;
 totalValidatenNum       = PARAMS.numValidate * PARAMS.batchSize;
 comboBatchSize          = combo*batchSize;
-
+dropoutP                = PARAMS.dropOutRatio;
+CHECK_INTERVAL          = PARAMS.backpropCheckInterval;
+MEASUREMENT_PROP        = PARAMS.measurementProp_Backprop;
+numReduBatches           = round(numBatches*MEASUREMENT_PROP);           % If we're only evaluating test/train performance on a smaller number of batches, how many?
+numValReduBatches        = round(numValidateBatches*MEASUREMENT_PROP);
 %% Operating flag that should go away
 
 TEST_AGAINST_HINTON = PARAMS.useFileBatches;
@@ -48,12 +53,13 @@ end
 [w{1:numNodes}] = deal(eye(2));
 [v{1:numNodes}] = deal(eye(2));
 wIdx = zeros(numNodes,1);
-
 for ii = 1:numNodes
     S = load([pathDir 'state' num2str(ii)]);
     w{ii} = [S.weights; S.biasesHid];
     v{ii} = S.biasesVis;
     wIdx(ii) = size(w{ii},1)-1;
+ 
+
 end
 if ~isfield('S','weightsC')
     w{numNodes+1} = 0.1*randn(size(w{end},2)+1,numTargetClass);
@@ -71,98 +77,102 @@ trainErrorNormalized   = zeros(1,maxEpoch);
 
 fprintf(1,'%d training batches of %d samples\n', numBatches, batchSize);
 fprintf(1,'%d validation batches of %d samples\n', numValidateBatches, batchSize);
+trainBatchRanges = 1:numBatches; 
+valBatchRanges = 1:numValidateBatches;
 
 for epoch = 1:maxEpoch
+
     
     %% training misclassification rate
     error = 0;
     counter = 0;
-    
-    idx =  1:totalTrainNum;
-    label = zeros(batchSize,numTargetClass);
-    for batch = 1:numBatches
-        if TEST_AGAINST_HINTON == 1
-            S = load([pathBatch '/batch' num2str(batch)]);
-            data = [S.batchData ones(batchSize,1)];
-            label = [S.batchLabel];
-            clear S;
-        else
-            % We're reading all the data, so this doesn't have to be random
-            batchStart = (batch - 1)*batchSize + 1; 
-            batchEnd = batch*batchSize;
-
-            dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
-            label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
-            %%%
-
-            data = [dataNoBias ones(batchSize,1)];
+    if mod(epoch,CHECK_INTERVAL) == 0
+        idx =  1:totalTrainNum;
+        label = zeros(batchSize,numTargetClass);
+        if MEASUREMENT_PROP ~= 1
+            tmp = randperm(numBatches);
+            trainBatch = tmp(1:numReduBatches);
+            tmp = randperm(numValidateBatches);
+            valBatchRanges = tmp(1:numValReduBatches);
+            
         end
-        if mod(batch,50) == 1
-            fprintf(1,'Epoch %d\tBatch %d\n', epoch, batch);
+        for batch = trainBatchRanges
+            if TEST_AGAINST_HINTON == 1
+                S = load([pathBatch '/batch' num2str(batch)]);
+                data = [S.batchData ones(batchSize,1)];
+                label = [S.batchLabel];
+                clear S;
+            else
+                % We're reading all the data, so this doesn't have to be random
+                batchStart = (batch - 1)*batchSize + 1;
+                batchEnd = batch*batchSize;
+                
+                dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
+                label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
+                %%%
+                
+                data = [dataNoBias ones(batchSize,1)];
+            end
+            if mod(batch,50) == 1
+                fprintf(1,'Epoch %d\tBatch %d\n', epoch, batch);
+            end
+            
+            labelEst = nn_fwd(w,data,numNodes,dropoutP,batchSize,numTargetClass);
+            
+            [~, idxEst]= max(labelEst,[],2);
+            [~, idxTrue]= max(label,[],2);
+            
+            counter = counter + sum(idxEst == idxTrue);                 % Count true labels
+            
+            error = error - sum(sum(label(:,1:end).*log(labelEst)));
         end
-
+        trainError(epoch) = (batchSize*numReduBatches-counter);
+        trainErrorNormalized(epoch)= error/numReduBatches;
         
-        for level = 1:numNodes
-            temp = 1./(1 + exp(-data*w{level}));
-            data = [temp ones(batchSize, 1)];
-        end
         
-        labelEst = exp(data*w{level+1});
-        labelEst = labelEst./repmat(sum(labelEst,2), 1, numTargetClass);
-        [~, idxEst]= max(labelEst,[],2);
-        [~, idxTrue]= max(label,[],2);
-        counter = counter + length(find(idxEst==idxTrue));
-        error = error - sum(sum(label(:,1:end).*log(labelEst)));
+        %% test misclassification rate
+        error = 0;
+        counter = 0;
+        
+        offset = totalTrainNum;
+        idx = [1:totalValidatenNum] + offset;
+
+        for batch = valBatchRanges
+            if TEST_AGAINST_HINTON == 1
+                S = load([pathValidate '/batch' num2str(batch)]);
+                data = [S.batchData ones(batchSize,1)];
+                label = [S.batchLabel];
+                clear S;
+            else    % Ideally we should figure out how much data we can load at once and process in that chunk size
+                batchStart = (batch - 1)*batchSize + 1;
+                batchEnd = batch*batchSize;
+                dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
+                label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
+                data = [dataNoBias ones(batchSize,1)];
+            end
+            
+            labelEst = nn_fwd(w,data,numNodes,dropoutP,batchSize,numTargetClass);
+            
+            [~, idxEst]= max(labelEst,[],2);
+            [~, idxTrue]= max(label,[],2);
+            counter = counter + sum(idxEst==idxTrue);
+            error = error- sum(sum(label(:,1:end).*log(labelEst)));    % Cross-entropy error. See http://ufldl.stanford.edu/wiki/index.php/Softmax_Regression for Softmax
+        end
+        testError(epoch) = (batchSize*numValReduBatches-counter);
+        testErrorNormalized(epoch)= error/numValReduBatches;
+        
+        fprintf(1,'Before epoch %d\nTrain # misclassified: %d (from %d)\nTest # misclassified: %d (from %d) \t \t \n',...
+            epoch,trainError(epoch),batchSize*numReduBatches,testError(epoch),batchSize*numValReduBatches);
     end
-    trainError(epoch) = (batchSize*numBatches-counter);
-    trainErrorNormalized(epoch)= error/numBatches;
-    
-    %% test misclassification rate
-    error = 0;
-    counter = 0;
-    
-    offset = totalTrainNum;
-    idx = [1:totalValidatenNum] + offset;
-    for batch = 1:numValidateBatches
-        if TEST_AGAINST_HINTON == 1
-            S = load([pathValidate '/batch' num2str(batch)]);
-            data = [S.batchData ones(batchSize,1)];
-            label = [S.batchLabel];
-            clear S;
-        else    % Ideally we should figure out how much data we can load at once and process in that chunk size
-            batchStart = (batch - 1)*batchSize + 1;
-            batchEnd = batch*batchSize;    
-            dataNoBias(1:batchSize,1:numDimensions) = dH.X(idx(batchStart:batchEnd),1:numDimensions);
-            label(1:batchSize,1:numTargetClass) = dH.Y(idx(batchStart:batchEnd),1:numTargetClass);
-            data = [dataNoBias ones(batchSize,1)];
-        end
-        
-        for level = 1:numNodes
-            temp = 1./(1 + exp(-data*w{level}));
-            data = [temp ones(batchSize, 1)];
-        end
-        
-        labelEst = exp(data*w{level+1});
-        labelEst = labelEst./repmat(sum(labelEst,2), 1, numTargetClass);
-        [~, idxEst]= max(labelEst,[],2);
-        [~, idxTrue]= max(label,[],2);
-        counter = counter + length(find(idxEst==idxTrue));
-        error = error- sum(sum(label(:,1:end).*log(labelEst)));    % Cross-entropy error. See http://ufldl.stanford.edu/wiki/index.php/Softmax_Regression for Softmax
-    end
-    testError(epoch) = (batchSize*numValidateBatches-counter);
-    testErrorNormalized(epoch)= error/numValidateBatches;
-    
-    fprintf(1,'Before epoch %d\nTrain # misclassified: %d (from %d)\nTest # misclassified: %d (from %d) \t \t \n',...
-            epoch,trainError(epoch),batchSize*numBatches,testError(epoch),batchSize*numValidateBatches);
-
     %% gradient descent with three line searches
     
     idx = randperm(totalTrainNum);
     for batch = 1:numCombinedBatches
-        batch
+        if mod(batch,50) == 0
+           disp(['CjGD on ' num2str(batch) ' of ' num2str(numCombinedBatches)]); 
+        end
+        % make a bigger minibatch
         if TEST_AGAINST_HINTON == 1
-            % make a bigger minibatch
-            
             data = [];
             label = [];
             for count = 0:combo-1
@@ -174,9 +184,7 @@ for epoch = 1:maxEpoch
                 clear S;
             end
             comboData = data(:,1:end-1);
-
-        else
-            
+        else            
             batchStart = (batch - 1)*comboBatchSize + 1;
             comboData = zeros(comboBatchSize,numDimensions);
             for kk = 1:comboBatchSize
@@ -184,19 +192,12 @@ for epoch = 1:maxEpoch
                 label(kk,1:numTargetClass) = dH.Y(idx(batchStart+kk-1),1:numTargetClass);
             end
             data = [comboData ones(comboBatchSize,1)];
-        
         end
 
-        
-        %% conjgate gradient descent with linesearches
-        
-        
-        if epoch < 2  % First update top-level weights holding other weights fixed.
-            for level = 1:numNodes
-                temp = 1./(1 + exp(-data*w{level}));
-                data = [temp ones(batchSize*combo, 1)];
-            end
+        %% conjgate gradient descent with linesearches 
+        if epoch < 4  % First update top-level weights holding other weights fixed.
             
+            [~,data] = nn_fwd(w,data,numNodes,dropoutP,comboBatchSize,numTargetClass);
             % remove bias
             data = data(:, 1:end-1);
             
@@ -213,7 +214,12 @@ for epoch = 1:maxEpoch
             
             wFinal = [];
             for level = 1:numNodes+1
-                temp = w{level};
+                dropout = 1;
+                if dropoutP > 0 && level <= numNodes
+                    dropout = dropoutP < rand(size(w{level},2),1);
+                    dropout = repmat(dropout,1,size(w{level},2));
+                end
+                temp = (w{level}*dropout);
                 wFinal = [wFinal;temp(:)];
             end
             
