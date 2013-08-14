@@ -35,8 +35,9 @@ comboBatchSize          = combo*batchSize;
 dropoutP                = PARAMS.dropOutRatio;
 CHECK_INTERVAL          = PARAMS.backpropCheckInterval;
 MEASUREMENT_PROP        = PARAMS.measurementProp_Backprop;
-numReduBatches           = round(numBatches*MEASUREMENT_PROP);           % If we're only evaluating test/train performance on a smaller number of batches, how many?
-numValReduBatches        = round(numValidateBatches*MEASUREMENT_PROP);
+numReduBatches          = round(numBatches*MEASUREMENT_PROP);           % If we're only evaluating test/train performance on a smaller number of batches, how many?
+numValReduBatches       = round(numValidateBatches*MEASUREMENT_PROP);
+NUM_TOP_LAYER_BP        = PARAMS.numTopLayerBackpropEpochs;
 %% Operating flag that should go away
 
 TEST_AGAINST_HINTON = PARAMS.useFileBatches;
@@ -69,10 +70,10 @@ end
 wIdx(numNodes+1) = size(w{numNodes+1},1)-1;
 wIdx(numNodes+2) = numTargetClass;
 
-testError              = zeros(1,maxEpoch);
-testErrorNormalized    = zeros(1,maxEpoch);
-trainError             = zeros(1,maxEpoch);
-trainErrorNormalized   = zeros(1,maxEpoch);
+testError              = nan(1,maxEpoch);
+testErrorNormalized    = nan(1,maxEpoch);
+trainError             = nan(1,maxEpoch);
+trainErrorNormalized   = nan(1,maxEpoch);
 
 
 fprintf(1,'%d training batches of %d samples\n', numBatches, batchSize);
@@ -168,8 +169,8 @@ for epoch = 1:maxEpoch
     
     idx = randperm(totalTrainNum);
     for batch = 1:numCombinedBatches
-        if mod(batch,50) == 0
-           disp(['CjGD on ' num2str(batch) ' of ' num2str(numCombinedBatches)]); 
+        if mod(batch,5) == 0
+            disp(['CjGD on ' num2str(batch) ' of ' num2str(numCombinedBatches)]); 
         end
         % make a bigger minibatch
         if TEST_AGAINST_HINTON == 1
@@ -195,15 +196,14 @@ for epoch = 1:maxEpoch
         end
 
         %% conjgate gradient descent with linesearches 
-        if epoch < 4  % First update top-level weights holding other weights fixed.
+        if epoch < NUM_TOP_LAYER_BP  % First update top-level weights holding other weights fixed.
             
             [~,data] = nn_fwd(w,data,numNodes,dropoutP,comboBatchSize,numTargetClass);
             % remove bias
             data = data(:, 1:end-1);
             
             % vectorize final layer wieghts 
-            temp = w{level+1};
-            wFinal = temp(:);
+            wFinal = w{numNodes+1}(:);
             
             % CG and update weights
             dim = wIdx(numNodes+1:end);
@@ -214,13 +214,7 @@ for epoch = 1:maxEpoch
             
             wFinal = [];
             for level = 1:numNodes+1
-                dropout = 1;
-                if dropoutP > 0 && level <= numNodes
-                    dropout = dropoutP < rand(size(w{level},2),1);
-                    dropout = repmat(dropout,1,size(w{level},2));
-                end
-                temp = (w{level}*dropout);
-                wFinal = [wFinal;temp(:)];
+                wFinal = [wFinal; w{level}(:)];
             end
             
             dim = wIdx;

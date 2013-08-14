@@ -14,6 +14,7 @@ function [f, df] = DBN_ConjugateGradient(VV,idx,XX,target,PARAMS)
 %% DEVELOPED : 7.13.0.564 (R2011b)
 %% FILENAME  : DBN_ConjugateGradient.m
 %% COPYRIGHT 2011 3 Phonenix Inc.
+dropoutP                = PARAMS.dropOutRatio;
 
 numNodes = numel(PARAMS.nodes);
 delta = 0;
@@ -28,6 +29,10 @@ N = size(XX,1);
 wProb{1} = [XX ones(N,1)];
 for ii = 1:numNodes
     temp = 1./(1 + exp(-wProb{ii}*w{ii}));
+    if dropoutP > 0
+        dropout = dropoutP < rand(size(temp,2));
+        temp = temp.*dropout;   % Dropout random selection of nodes, different for each example.
+    end
     wProb{ii+1} = [temp ones(N,1)];
 end
 

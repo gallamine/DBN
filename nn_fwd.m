@@ -10,11 +10,12 @@ function [labelEst,data] = nn_fwd(w,data,numNodes,dropoutP,batchSize,numTargetCl
 
 for level = 1:numNodes
     dropout = 1;
+
+    temp = 1./(1 + exp(-data*(w{level})));      
     if dropoutP > 0
-        dropout = dropoutP < rand(size(w{level},2));
-        %dropout = repmat(dropout,1,size(w{level},2));
+        dropout = dropoutP < rand(size(temp,2));
+        temp = temp *dropout;   % Dropout random selection of nodes, different for each example.
     end
-    temp = 1./(1 + exp(-data*(w{level}*dropout)));      % Dropout random selection of nodes, different for each example.
     data = [temp ones(batchSize, 1)];
 end
 

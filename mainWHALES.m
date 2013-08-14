@@ -16,12 +16,13 @@ PARAMS.epochToChangeMomentum    = 5;
 PARAMS.maxBackPropEpoch         = 25;
 PARAMS.combo                    = 10; % for gradient descent
 %PARAMS.numTargets               = 2;
-PARAMS.numberOfLineSearches     = 3; % for conjugate gradient descent
+PARAMS.numberOfLineSearches     = 3;    % for conjugate gradient descent
 PARAMS.displayVisualization     = 1;
 FIT_LAST_LAYER_TO_TARGETS       = 0;
 PARAMS.useFileBatches           = 0;
 PARAMS.nodeType                 = 'binary';
 PARAMS.dropOutRatio             = 0.5;
+PARAMS.numTopLayerBackpropEpochs = 4;       % How many epochs to only train the top layer using BP
 %% path definitions
 % set this one
 dirpath = 'C:\Users\william.cox\Documents\DBN\whales\';
