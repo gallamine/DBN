@@ -30,7 +30,7 @@ wProb{1} = [XX ones(N,1)];
 for ii = 1:numNodes
     temp = 1./(1 + exp(-wProb{ii}*w{ii}));
     if dropoutP > 0
-        dropout = dropoutP < rand(size(temp,2));
+        dropout = dropoutP > rand(size(temp));
         temp = temp.*dropout;   % Dropout random selection of nodes, different for each example.
     end
     wProb{ii+1} = [temp ones(N,1)];

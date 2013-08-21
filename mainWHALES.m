@@ -3,8 +3,8 @@
 PARAMS.trainSamples             = 30000;
 PARAMS.batchSize                = 15;
 PARAMS.validatePercentage       = 1/6;      % For MNIST, the last 10k samples are testing
-PARAMS.maxEpoch                 = 25;
-PARAMS.nodes                    = [500 500 2000];
+PARAMS.maxEpoch                 = 100;
+PARAMS.nodes                    = [1000 1000 2000];
 PARAMS.learningRateW            = 0.1;   % Learning rate for RBM weights
 PARAMS.learningRateBiasVis      = 0.1;   % Learning rate for biases of visible units
 PARAMS.learningRateBiasHid      = 0.1;   % Learning rate for biases of hidden units
@@ -13,7 +13,7 @@ PARAMS.weightCost               = 0.0002;
 PARAMS.initialMomentum          = 0.5;
 PARAMS.finalMomentum            = 0.9;
 PARAMS.epochToChangeMomentum    = 5;
-PARAMS.maxBackPropEpoch         = 25;
+PARAMS.maxBackPropEpoch         = 150;
 PARAMS.combo                    = 10; % for gradient descent
 %PARAMS.numTargets               = 2;
 PARAMS.numberOfLineSearches     = 3;    % for conjugate gradient descent
@@ -23,6 +23,8 @@ PARAMS.useFileBatches           = 0;
 PARAMS.nodeType                 = 'binary';
 PARAMS.dropOutRatio             = 0.5;
 PARAMS.numTopLayerBackpropEpochs = 4;       % How many epochs to only train the top layer using BP
+PARAMS.backpropCheckInterval    = 2;    % Compute test/train at this epoch interval during BP
+PARAMS.measurementProp_Backprop = 1;  % Percentage of coverage when computing test/train error during BP
 %% path definitions
 % set this one
 dirpath = 'C:\Users\william.cox\Documents\DBN\whales\';

@@ -29,7 +29,7 @@ combo                   = PARAMS.combo;
 totalTrainNum           = PARAMS.numBatches * PARAMS.batchSize;
 totalValidatenNum       = PARAMS.numValidate * PARAMS.batchSize;
 comboBatchSize          = combo*batchSize;
-
+dropoutP                = PARAMS.dropOutRatio;
 %% constants
 numNodes = numel(PARAMS.nodes);
 
@@ -59,15 +59,17 @@ for ii = 1:numTestExamples(1)
 %      clear S;
      dataNoBias = dH.X(ii,1:numDimensions);
      N = numel(dataNoBias);
-     wprobs{1} = [dataNoBias 1];
+     wprobs{1} = [dataNoBias 1/dropoutP];   % Ajust the biases so they become 1 after scaling by p_dropout
      
      
-     for jj = 1:numNodes
-         temp = 1./(1 + exp(-wprobs{jj}*w{jj}));
-         wprobs{jj+1} = [temp 1]; 
-     end
-     % Compute softmax
-     targetout(ii,1:numTargetClass) = exp(wprobs{jj+1}*w{jj+1});
+%      for jj = 1:numNodes
+%          temp = 1./(1 + exp(-wprobs{jj}*w{jj}));
+%          wprobs{jj+1} = [temp 1]; 
+%      end
+%      % Compute softmax
+%      targetout(ii,1:numTargetClass) = exp(wprobs{jj+1}*w{jj+1});
+     w = w .* dropoutP;
+     [labelEst,~] = nn_fwd();
      pd(ii) = (targetout(ii,1) ./ sum(targetout(ii,:),2));        
 end
 
